@@ -186,11 +186,33 @@
   </div>
 </div>
 
+<div class="overlay" id="editAmountOverlay">
+  <div class="sheet">
+    <h2 id="editAmountTitle">Editar monto</h2>
+    <div class="field">
+      <label>Nuevo monto mensual (COP)</label>
+      <input type="number" id="editAmountValue" placeholder="1220000" inputmode="numeric">
+    </div>
+    <div class="field">
+      <label>Aplica a partir de</label>
+      <input type="month" id="editAmountFrom">
+    </div>
+    <div class="sub" style="font-size:12px;color:var(--text-dim);margin-top:-8px;margin-bottom:14px;">
+      Los meses anteriores conservan el monto anterior, para que tu historial no se altere.
+    </div>
+    <div class="sheet-actions">
+      <button class="btn-cancel" onclick="closeEditAmount()">Cancelar</button>
+      <button class="btn-save" onclick="saveEditAmount()">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const STORAGE_KEY = 'finanzasDiarias_v1';
 let state = { recurring: [], transactions: [] };
 let txType = 'expense';
 let recurType = 'expense';
+let editingRecurId = null;
 
 function loadState(){
   try{
@@ -199,6 +221,13 @@ function loadState(){
   }catch(e){ console.warn('No se pudo cargar almacenamiento local', e); }
   if(!state.recurring) state.recurring = [];
   if(!state.transactions) state.transactions = [];
+  // migrate old flat-amount items to month-aware history
+  state.recurring.forEach(r=>{
+    if(!r.history){
+      r.history = [{ fromMonth: '0001-01', amount: Number(r.amount) || 0 }];
+    }
+    r.history.sort((a,b)=> a.fromMonth.localeCompare(b.fromMonth));
+  });
 }
 function saveState(){
   try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
@@ -215,6 +244,19 @@ function todayStr(){
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
 function daysInMonth(year, month){ return new Date(year, month+1, 0).getDate(); }
+function monthKey(y,m){ return y+'-'+String(m+1).padStart(2,'0'); }
+function getAmountForMonth(item, y, m){
+  const key = monthKey(y,m);
+  let applicable = item.history[0].amount;
+  for(const h of item.history){
+    if(h.fromMonth <= key) applicable = h.amount; else break;
+  }
+  return applicable;
+}
+function currentAmount(item){
+  const t = new Date();
+  return getAmountForMonth(item, t.getFullYear(), t.getMonth());
+}
 
 let viewYear, viewMonth;
 function initView(){
@@ -230,8 +272,8 @@ function monthLabel(y,m){
 
 function computeMonthData(){
   const dim = daysInMonth(viewYear, viewMonth);
-  const recurIncome = state.recurring.filter(r=>r.type==='income').reduce((s,r)=>s+Number(r.amount),0);
-  const recurExpense = state.recurring.filter(r=>r.type==='expense').reduce((s,r)=>s+Number(r.amount),0);
+  const recurIncome = state.recurring.filter(r=>r.type==='income').reduce((s,r)=>s+getAmountForMonth(r,viewYear,viewMonth),0);
+  const recurExpense = state.recurring.filter(r=>r.type==='expense').reduce((s,r)=>s+getAmountForMonth(r,viewYear,viewMonth),0);
   const dailyIncomeBase = recurIncome / dim;
   const dailyExpenseBase = recurExpense / dim;
   const dailyNetBase = dailyIncomeBase - dailyExpenseBase;
@@ -408,19 +450,21 @@ function deleteTx(id){
 // Breakdown sheet
 function openBreakdown(type){
   const dim = daysInMonth(viewYear, viewMonth);
-  const items = state.recurring.filter(r=>r.type===type).sort((a,b)=>b.amount-a.amount);
-  document.getElementById('breakdownTitle').textContent = type==='income' ? 'Ingresos fijos del mes' : 'Gastos fijos del mes';
+  const items = state.recurring.filter(r=>r.type===type)
+    .map(r=>({ ...r, monthAmount: getAmountForMonth(r, viewYear, viewMonth) }))
+    .sort((a,b)=>b.monthAmount-a.monthAmount);
+  document.getElementById('breakdownTitle').textContent = (type==='income' ? 'Ingresos fijos · ' : 'Gastos fijos · ') + monthLabel(viewYear,viewMonth);
   const listEl = document.getElementById('breakdownList');
   if(items.length===0){
     listEl.innerHTML = `<div class="empty">Sin ${type==='income'?'ingresos':'gastos'} fijos agregados.<br>Ábrelos desde el ícono de engranaje.</div>`;
   } else {
-    const total = items.reduce((s,r)=>s+Number(r.amount),0);
+    const total = items.reduce((s,r)=>s+r.monthAmount,0);
     listEl.innerHTML = items.map(r=>{
-      const perDay = r.amount / dim;
+      const perDay = r.monthAmount / dim;
       return `<div class="recur-row">
         <div>
           <div class="rname">${escapeHtml(r.name)}</div>
-          <div class="rday">Día ${r.day} · ${fmtCOP(r.amount)} al mes</div>
+          <div class="rday">Día ${r.day} · ${fmtCOP(r.monthAmount)} este mes</div>
         </div>
         <div>
           <span class="ramt ${type==='income'?'pos':'neg'}">${fmtCOP(perDay)}<span style="color:var(--text-faint);font-weight:400;">/día</span></span>
@@ -454,7 +498,8 @@ function renderRecurList(){
         <div class="rday">Día ${r.day} de cada mes</div>
       </div>
       <div style="display:flex;align-items:center;">
-        <span class="ramt ${r.type==='income'?'pos':'neg'}">${r.type==='income'?'+':'-'}${fmtCOP(r.amount)}</span>
+        <span class="ramt ${r.type==='income'?'pos':'neg'}">${r.type==='income'?'+':'-'}${fmtCOP(currentAmount(r))}</span>
+        <button class="rdel" onclick="openEditAmount(${r.id})" aria-label="Editar monto">&#9998;</button>
         <button class="rdel" onclick="deleteRecur(${r.id})">&times;</button>
       </div>
     </div>
@@ -463,6 +508,34 @@ function renderRecurList(){
 function deleteRecur(id){
   state.recurring = state.recurring.filter(r=>r.id!==id);
   saveState();
+  renderRecurList();
+  render();
+}
+
+function openEditAmount(id){
+  editingRecurId = id;
+  const item = state.recurring.find(r=>r.id===id);
+  if(!item) return;
+  document.getElementById('editAmountTitle').textContent = 'Editar monto · ' + item.name;
+  document.getElementById('editAmountValue').value = currentAmount(item);
+  const t = new Date();
+  document.getElementById('editAmountFrom').value = monthKey(t.getFullYear(), t.getMonth());
+  document.getElementById('editAmountOverlay').classList.add('open');
+}
+function closeEditAmount(){ document.getElementById('editAmountOverlay').classList.remove('open'); editingRecurId = null; }
+function saveEditAmount(){
+  const item = state.recurring.find(r=>r.id===editingRecurId);
+  if(!item) return;
+  const amount = Number(document.getElementById('editAmountValue').value);
+  const fromMonth = document.getElementById('editAmountFrom').value;
+  if(!amount || amount<=0){ alert('Ingresa un monto válido'); return; }
+  if(!fromMonth){ alert('Selecciona a partir de qué mes aplica'); return; }
+  const existing = item.history.find(h=>h.fromMonth===fromMonth);
+  if(existing){ existing.amount = amount; }
+  else{ item.history.push({ fromMonth, amount }); }
+  item.history.sort((a,b)=> a.fromMonth.localeCompare(b.fromMonth));
+  saveState();
+  closeEditAmount();
   renderRecurList();
   render();
 }
@@ -487,7 +560,7 @@ function saveRecur(){
   if(!name){ alert('Ingresa un nombre'); return; }
   if(!amount || amount<=0){ alert('Ingresa un monto válido'); return; }
   if(!day || day<1 || day>31){ alert('Ingresa un día válido (1-31)'); return; }
-  state.recurring.push({ id: Date.now(), type: recurType, name, amount, day });
+  state.recurring.push({ id: Date.now(), type: recurType, name, day, history: [{ fromMonth: monthKey(new Date().getFullYear(), new Date().getMonth()), amount }] });
   saveState();
   closeRecurForm();
   renderRecurList();
