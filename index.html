@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Diario">
+<title>Finanzas Diarias</title>
+<style>
+  :root{
+    --bg:#14171A;
+    --surface:#1C2024;
+    --surface-2:#23282D;
+    --line:#2E3338;
+    --text:#ECE8DE;
+    --text-dim:#8B9199;
+    --text-faint:#5B6167;
+    --rust:#C2622E;
+    --rust-dim:#8A4A24;
+    --teal:#4E9B85;
+    --teal-dim:#376F62;
+    --font-sans:-apple-system,BlinkMacSystemFont,"SF Pro Text",sans-serif;
+    --font-mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--font-sans);
+    -webkit-user-select:none;user-select:none;overscroll-behavior-y:none;}
+  body{padding-bottom:env(safe-area-inset-bottom);min-height:100vh;}
+  .app{max-width:480px;margin:0 auto;padding:calc(env(safe-area-inset-top) + 18px) 16px 100px;}
+
+  /* Header */
+  .header{margin-bottom:20px;}
+  .header .month{font-size:13px;color:var(--text-dim);letter-spacing:.04em;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center;}
+  .month-nav{display:flex;gap:14px;align-items:center;}
+  .month-nav button{background:none;border:none;color:var(--text-dim);font-size:15px;padding:4px 8px;font-family:var(--font-sans);}
+  .header h1{font-size:26px;font-weight:600;margin:4px 0 0;font-family:var(--font-mono);letter-spacing:-0.02em;}
+  .header .sub{font-size:13px;color:var(--text-dim);margin-top:2px;}
+
+  /* Summary cards */
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:22px;}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;}
+  .card .label{font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;}
+  .card .val{font-family:var(--font-mono);font-size:18px;font-weight:600;}
+  .card.net{grid-column:1/-1;background:var(--surface-2);}
+  .card.net .val{font-size:24px;}
+  .card.clickable{cursor:pointer;}
+  .card.clickable:active{background:var(--surface-2);}
+  .card .label{display:flex;align-items:center;gap:4px;}
+  .card .label i{font-size:9px;color:var(--text-faint);}
+  .pos{color:var(--teal);}
+  .neg{color:var(--rust);}
+
+  /* Chart */
+  .chart-wrap{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 10px 8px;margin-bottom:22px;}
+  .chart-title{font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.04em;padding:0 6px 10px;}
+  svg{display:block;width:100%;}
+  .day-label{font-size:8px;fill:var(--text-faint);font-family:var(--font-mono);}
+  .today-marker{stroke:var(--text-dim);stroke-width:1;stroke-dasharray:2,2;}
+
+  /* Section titles */
+  .section-title{font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.04em;margin:0 4px 10px;display:flex;justify-content:space-between;align-items:center;}
+  .section-title .link{color:var(--text);font-size:12px;text-transform:none;letter-spacing:0;}
+
+  /* Receipt roll */
+  .receipt{background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:22px;}
+  .receipt-row{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px dashed var(--line);font-family:var(--font-mono);font-size:13px;}
+  .receipt-row:last-child{border-bottom:none;}
+  .receipt-row .rleft{display:flex;flex-direction:column;gap:2px;overflow:hidden;}
+  .receipt-row .rname{font-family:var(--font-sans);font-size:13.5px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:190px;}
+  .receipt-row .rdate{font-size:11px;color:var(--text-faint);}
+  .receipt-row .ramt{font-weight:600;white-space:nowrap;}
+  .receipt-row .rdel{background:none;border:none;color:var(--text-faint);font-size:16px;padding:4px 0 4px 10px;font-family:var(--font-sans);}
+  .empty{padding:28px 14px;text-align:center;color:var(--text-faint);font-size:13px;}
+
+  /* Recurring list */
+  .recur-row{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid var(--line);}
+  .recur-row:last-child{border-bottom:none;}
+  .recur-row .rname{font-size:14px;}
+  .recur-row .rday{font-size:11px;color:var(--text-faint);margin-top:2px;}
+  .recur-row .ramt{font-family:var(--font-mono);font-weight:600;font-size:13.5px;}
+  .recur-row .rdel{background:none;border:none;color:var(--text-faint);font-size:16px;padding:4px 0 4px 12px;}
+
+  /* FAB */
+  .fab-row{position:sticky;bottom:0;left:0;right:0;display:flex;gap:10px;padding:14px 16px calc(14px + env(safe-area-inset-bottom));
+    background:linear-gradient(to top, var(--bg) 60%, transparent);max-width:480px;margin:0 auto;}
+  .fab{flex:1;border:none;border-radius:12px;padding:15px 0;font-size:15px;font-weight:600;font-family:var(--font-sans);}
+  .fab.income{background:var(--teal-dim);color:#DFF3EC;}
+  .fab.expense{background:var(--rust-dim);color:#FBE8DC;}
+  .fab.settings{flex:0 0 48px;background:var(--surface-2);color:var(--text-dim);border:1px solid var(--line);}
+
+  /* Sheet / modal */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:flex-end;z-index:20;}
+  .overlay.open{display:flex;}
+  .sheet{background:var(--surface);width:100%;max-width:480px;margin:0 auto;border-radius:18px 18px 0 0;padding:20px 18px calc(20px + env(safe-area-inset-bottom));max-height:85vh;overflow-y:auto;}
+  .sheet h2{font-size:17px;margin:0 0 16px;font-weight:600;}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:12px;color:var(--text-dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:.03em;}
+  .field input,.field select{width:100%;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;color:var(--text);
+    padding:11px 12px;font-size:15px;font-family:var(--font-sans);}
+  .field input[type=number]{font-family:var(--font-mono);}
+  .toggle-row{display:flex;gap:8px;}
+  .toggle-row button{flex:1;padding:10px 0;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--text-dim);font-size:14px;font-family:var(--font-sans);}
+  .toggle-row button.active.income{background:var(--teal-dim);color:#DFF3EC;border-color:var(--teal-dim);}
+  .toggle-row button.active.expense{background:var(--rust-dim);color:#FBE8DC;border-color:var(--rust-dim);}
+  .sheet-actions{display:flex;gap:10px;margin-top:18px;}
+  .sheet-actions button{flex:1;padding:14px 0;border-radius:10px;border:none;font-size:15px;font-weight:600;font-family:var(--font-sans);}
+  .btn-cancel{background:var(--surface-2);color:var(--text-dim);}
+  .btn-save{background:var(--text);color:var(--bg);}
+  .add-recur-btn{width:100%;padding:12px 0;border-radius:8px;border:1px dashed var(--line);background:none;color:var(--text-dim);font-size:14px;margin-top:12px;font-family:var(--font-sans);}
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+
+<div class="overlay" id="txOverlay">
+  <div class="sheet">
+    <h2 id="txTitle">Agregar movimiento</h2>
+    <div class="toggle-row" style="margin-bottom:16px;">
+      <button id="txTypeIncome" class="income">Ingreso</button>
+      <button id="txTypeExpense" class="expense">Gasto</button>
+    </div>
+    <div class="field">
+      <label>Monto (COP)</label>
+      <input type="number" id="txAmount" placeholder="50000" inputmode="numeric">
+    </div>
+    <div class="field">
+      <label>Descripción</label>
+      <input type="text" id="txNote" placeholder="Almuerzo, transporte...">
+    </div>
+    <div class="field">
+      <label>Fecha</label>
+      <input type="date" id="txDate">
+    </div>
+    <div class="sheet-actions">
+      <button class="btn-cancel" onclick="closeTx()">Cancelar</button>
+      <button class="btn-save" onclick="saveTx()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="settingsOverlay">
+  <div class="sheet">
+    <h2>Ingresos y gastos fijos</h2>
+    <div id="recurList"></div>
+    <button class="add-recur-btn" onclick="openRecurForm()">+ Agregar fijo (arriendo, préstamo, sueldo...)</button>
+    <div class="sheet-actions">
+      <button class="btn-cancel" onclick="closeSettings()" style="flex:1;">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="breakdownOverlay">
+  <div class="sheet">
+    <h2 id="breakdownTitle">Desglose</h2>
+    <div id="breakdownList"></div>
+    <div class="sheet-actions">
+      <button class="btn-cancel" onclick="closeBreakdown()" style="flex:1;">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="recurFormOverlay">
+  <div class="sheet">
+    <h2>Agregar fijo mensual</h2>
+    <div class="toggle-row" style="margin-bottom:16px;">
+      <button id="recurTypeIncome" class="income">Ingreso</button>
+      <button id="recurTypeExpense" class="expense">Gasto</button>
+    </div>
+    <div class="field">
+      <label>Nombre</label>
+      <input type="text" id="recurName" placeholder="Arriendo, préstamo vehículo, sueldo...">
+    </div>
+    <div class="field">
+      <label>Monto mensual (COP)</label>
+      <input type="number" id="recurAmount" placeholder="1000000" inputmode="numeric">
+    </div>
+    <div class="field">
+      <label>Día del mes en que se cobra</label>
+      <input type="number" id="recurDay" placeholder="5" min="1" max="31" inputmode="numeric">
+    </div>
+    <div class="sheet-actions">
+      <button class="btn-cancel" onclick="closeRecurForm()">Cancelar</button>
+      <button class="btn-save" onclick="saveRecur()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = 'finanzasDiarias_v1';
+let state = { recurring: [], transactions: [] };
+let txType = 'expense';
+let recurType = 'expense';
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw) state = JSON.parse(raw);
+  }catch(e){ console.warn('No se pudo cargar almacenamiento local', e); }
+  if(!state.recurring) state.recurring = [];
+  if(!state.transactions) state.transactions = [];
+}
+function saveState(){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+  catch(e){ console.warn('No se pudo guardar', e); }
+}
+
+function fmtCOP(n){
+  const rounded = Math.round(n);
+  const sign = rounded < 0 ? '-' : '';
+  return sign + '$' + Math.abs(rounded).toLocaleString('es-CO');
+}
+function todayStr(){
+  const d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function daysInMonth(year, month){ return new Date(year, month+1, 0).getDate(); }
+
+let viewYear, viewMonth;
+function initView(){
+  const t = new Date();
+  viewYear = t.getFullYear();
+  viewMonth = t.getMonth();
+}
+
+function monthLabel(y,m){
+  const names = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  return names[m] + ' ' + y;
+}
+
+function computeMonthData(){
+  const dim = daysInMonth(viewYear, viewMonth);
+  const recurIncome = state.recurring.filter(r=>r.type==='income').reduce((s,r)=>s+Number(r.amount),0);
+  const recurExpense = state.recurring.filter(r=>r.type==='expense').reduce((s,r)=>s+Number(r.amount),0);
+  const dailyIncomeBase = recurIncome / dim;
+  const dailyExpenseBase = recurExpense / dim;
+  const dailyNetBase = dailyIncomeBase - dailyExpenseBase;
+
+  const monthTx = state.transactions.filter(tx=>{
+    const d = new Date(tx.date+'T00:00:00');
+    return d.getFullYear()===viewYear && d.getMonth()===viewMonth;
+  });
+
+  const perDay = {};
+  for(let d=1; d<=dim; d++) perDay[d] = 0;
+  monthTx.forEach(tx=>{
+    const day = Number(tx.date.split('-')[2]);
+    perDay[day] += (tx.type==='income' ? Number(tx.amount) : -Number(tx.amount));
+  });
+
+  const barValues = [];
+  for(let d=1; d<=dim; d++){
+    barValues.push(dailyNetBase + perDay[d]);
+  }
+
+  const totalTxIncome = monthTx.filter(t=>t.type==='income').reduce((s,t)=>s+Number(t.amount),0);
+  const totalTxExpense = monthTx.filter(t=>t.type==='expense').reduce((s,t)=>s+Number(t.amount),0);
+
+  return {
+    dim, dailyIncomeBase, dailyExpenseBase, dailyNetBase,
+    barValues, monthTx,
+    totalIncome: recurIncome + totalTxIncome,
+    totalExpense: recurExpense + totalTxExpense,
+  };
+}
+
+function renderChart(barValues){
+  const w = 448, h = 120, padTop=8, padBottom=16;
+  const maxAbs = Math.max(1, ...barValues.map(v=>Math.abs(v)));
+  const zeroY = padTop + (h-padTop-padBottom)/2;
+  const scale = (h-padTop-padBottom)/2 / maxAbs;
+  const barW = Math.max(2, (w / barValues.length) - 2);
+  const today = new Date();
+  const isCurrentMonth = today.getFullYear()===viewYear && today.getMonth()===viewMonth;
+  const todayDay = today.getDate();
+
+  let bars = '';
+  barValues.forEach((v,i)=>{
+    const x = i * (w/barValues.length) + 1;
+    const barH = Math.abs(v) * scale;
+    const y = v >= 0 ? zeroY - barH : zeroY;
+    const color = v >= 0 ? 'var(--teal)' : 'var(--rust)';
+    bars += `<rect x="${x}" y="${y}" width="${barW}" height="${Math.max(barH,1)}" fill="${color}" rx="1.5" opacity="${isCurrentMonth && (i+1)>todayDay ? 0.35 : 1}"/>`;
+  });
+
+  let marker = '';
+  if(isCurrentMonth){
+    const mx = (todayDay-1) * (w/barValues.length) + (w/barValues.length)/2;
+    marker = `<line x1="${mx}" y1="0" x2="${mx}" y2="${h}" class="today-marker"/>`;
+  }
+
+  return `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">
+    <line x1="0" y1="${zeroY}" x2="${w}" y2="${zeroY}" stroke="var(--line)" stroke-width="1"/>
+    ${bars}
+    ${marker}
+  </svg>`;
+}
+
+function render(){
+  const data = computeMonthData();
+  const isCurrentMonth = (()=>{ const t=new Date(); return t.getFullYear()===viewYear && t.getMonth()===viewMonth; })();
+
+  const recentTx = [...state.transactions].sort((a,b)=> b.date.localeCompare(a.date) || b.id-a.id).slice(0,25);
+
+  let receiptHtml = '';
+  if(recentTx.length === 0){
+    receiptHtml = `<div class="empty">Sin movimientos todavía.<br>Agrega tu primer ingreso o gasto del día.</div>`;
+  } else {
+    receiptHtml = recentTx.map(tx=>{
+      const d = new Date(tx.date+'T00:00:00');
+      const dateFmt = d.toLocaleDateString('es-CO', {day:'2-digit', month:'short'});
+      return `<div class="receipt-row">
+        <div class="rleft">
+          <span class="rname">${escapeHtml(tx.note || (tx.type==='income'?'Ingreso':'Gasto'))}</span>
+          <span class="rdate">${dateFmt}</span>
+        </div>
+        <div style="display:flex;align-items:center;">
+          <span class="ramt ${tx.type==='income'?'pos':'neg'}">${tx.type==='income'?'+':'-'}${fmtCOP(tx.amount)}</span>
+          <button class="rdel" onclick="deleteTx(${tx.id})">&times;</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  document.getElementById('app').innerHTML = `
+    <div class="header">
+      <div class="month">
+        <span>Vista diaria</span>
+        <div class="month-nav">
+          <button onclick="changeMonth(-1)">&larr;</button>
+          <span>${monthLabel(viewYear,viewMonth)}</span>
+          <button onclick="changeMonth(1)">&rarr;</button>
+        </div>
+      </div>
+      <h1>${fmtCOP(data.dailyNetBase)} <span style="font-size:14px;color:var(--text-dim);font-weight:400;">/ día base</span></h1>
+      <div class="sub">${isCurrentMonth ? 'Presupuesto diario según tus fijos' : 'Fuera del mes actual'}</div>
+    </div>
+
+    <div class="cards">
+      <div class="card clickable" onclick="openBreakdown('income')">
+        <div class="label">Ingreso fijo / día <i class="tap-hint">&#9432;</i></div>
+        <div class="val pos">${fmtCOP(data.dailyIncomeBase)}</div>
+      </div>
+      <div class="card clickable" onclick="openBreakdown('expense')">
+        <div class="label">Gasto fijo / día <i class="tap-hint">&#9432;</i></div>
+        <div class="val neg">${fmtCOP(data.dailyExpenseBase)}</div>
+      </div>
+      <div class="card net">
+        <div class="label">Total mes: ingresos ${fmtCOP(data.totalIncome)} · gastos ${fmtCOP(data.totalExpense)}</div>
+        <div class="val ${data.totalIncome-data.totalExpense>=0?'pos':'neg'}">${fmtCOP(data.totalIncome-data.totalExpense)} neto</div>
+      </div>
+    </div>
+
+    <div class="chart-wrap">
+      <div class="chart-title">Presión diaria (fijos + movimientos)</div>
+      ${renderChart(data.barValues)}
+    </div>
+
+    <div class="section-title">Movimientos recientes</div>
+    <div class="receipt">${receiptHtml}</div>
+  `;
+}
+
+function changeMonth(delta){
+  viewMonth += delta;
+  if(viewMonth < 0){ viewMonth = 11; viewYear--; }
+  if(viewMonth > 11){ viewMonth = 0; viewYear++; }
+  render();
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// Transaction sheet
+function openTx(type){
+  txType = type;
+  document.getElementById('txTitle').textContent = type==='income' ? 'Agregar ingreso' : 'Agregar gasto';
+  document.getElementById('txTypeIncome').classList.toggle('active', type==='income');
+  document.getElementById('txTypeExpense').classList.toggle('active', type==='expense');
+  document.getElementById('txAmount').value = '';
+  document.getElementById('txNote').value = '';
+  document.getElementById('txDate').value = todayStr();
+  document.getElementById('txOverlay').classList.add('open');
+}
+function closeTx(){ document.getElementById('txOverlay').classList.remove('open'); }
+document.getElementById('txTypeIncome').onclick = ()=>{ txType='income'; document.getElementById('txTypeIncome').classList.add('active'); document.getElementById('txTypeExpense').classList.remove('active'); };
+document.getElementById('txTypeExpense').onclick = ()=>{ txType='expense'; document.getElementById('txTypeExpense').classList.add('active'); document.getElementById('txTypeIncome').classList.remove('active'); };
+
+function saveTx(){
+  const amount = Number(document.getElementById('txAmount').value);
+  const note = document.getElementById('txNote').value.trim();
+  const date = document.getElementById('txDate').value || todayStr();
+  if(!amount || amount <= 0){ alert('Ingresa un monto válido'); return; }
+  state.transactions.push({ id: Date.now(), type: txType, amount, note, date });
+  saveState();
+  closeTx();
+  const d = new Date(date+'T00:00:00');
+  viewYear = d.getFullYear(); viewMonth = d.getMonth();
+  render();
+}
+function deleteTx(id){
+  state.transactions = state.transactions.filter(t=>t.id!==id);
+  saveState();
+  render();
+}
+
+// Breakdown sheet
+function openBreakdown(type){
+  const dim = daysInMonth(viewYear, viewMonth);
+  const items = state.recurring.filter(r=>r.type===type).sort((a,b)=>b.amount-a.amount);
+  document.getElementById('breakdownTitle').textContent = type==='income' ? 'Ingresos fijos del mes' : 'Gastos fijos del mes';
+  const listEl = document.getElementById('breakdownList');
+  if(items.length===0){
+    listEl.innerHTML = `<div class="empty">Sin ${type==='income'?'ingresos':'gastos'} fijos agregados.<br>Ábrelos desde el ícono de engranaje.</div>`;
+  } else {
+    const total = items.reduce((s,r)=>s+Number(r.amount),0);
+    listEl.innerHTML = items.map(r=>{
+      const perDay = r.amount / dim;
+      return `<div class="recur-row">
+        <div>
+          <div class="rname">${escapeHtml(r.name)}</div>
+          <div class="rday">Día ${r.day} · ${fmtCOP(r.amount)} al mes</div>
+        </div>
+        <div>
+          <span class="ramt ${type==='income'?'pos':'neg'}">${fmtCOP(perDay)}<span style="color:var(--text-faint);font-weight:400;">/día</span></span>
+        </div>
+      </div>`;
+    }).join('') + `<div class="recur-row" style="border-top:1px solid var(--line);">
+        <div class="rname" style="font-weight:600;">Total</div>
+        <div class="ramt ${type==='income'?'pos':'neg'}" style="font-weight:700;">${fmtCOP(total/dim)}<span style="color:var(--text-faint);font-weight:400;">/día</span></div>
+      </div>`;
+  }
+  document.getElementById('breakdownOverlay').classList.add('open');
+}
+function closeBreakdown(){ document.getElementById('breakdownOverlay').classList.remove('open'); }
+
+// Settings / recurring
+function openSettings(){
+  renderRecurList();
+  document.getElementById('settingsOverlay').classList.add('open');
+}
+function closeSettings(){ document.getElementById('settingsOverlay').classList.remove('open'); }
+function renderRecurList(){
+  const el = document.getElementById('recurList');
+  if(state.recurring.length===0){
+    el.innerHTML = `<div class="empty">Sin ingresos ni gastos fijos.<br>Agrega tu arriendo, préstamos, sueldo...</div>`;
+    return;
+  }
+  el.innerHTML = state.recurring.map(r=>`
+    <div class="recur-row">
+      <div>
+        <div class="rname">${escapeHtml(r.name)}</div>
+        <div class="rday">Día ${r.day} de cada mes</div>
+      </div>
+      <div style="display:flex;align-items:center;">
+        <span class="ramt ${r.type==='income'?'pos':'neg'}">${r.type==='income'?'+':'-'}${fmtCOP(r.amount)}</span>
+        <button class="rdel" onclick="deleteRecur(${r.id})">&times;</button>
+      </div>
+    </div>
+  `).join('');
+}
+function deleteRecur(id){
+  state.recurring = state.recurring.filter(r=>r.id!==id);
+  saveState();
+  renderRecurList();
+  render();
+}
+
+function openRecurForm(){
+  recurType = 'expense';
+  document.getElementById('recurTypeIncome').classList.remove('active');
+  document.getElementById('recurTypeExpense').classList.add('active');
+  document.getElementById('recurName').value='';
+  document.getElementById('recurAmount').value='';
+  document.getElementById('recurDay').value='';
+  document.getElementById('recurFormOverlay').classList.add('open');
+}
+function closeRecurForm(){ document.getElementById('recurFormOverlay').classList.remove('open'); }
+document.getElementById('recurTypeIncome').onclick = ()=>{ recurType='income'; document.getElementById('recurTypeIncome').classList.add('active'); document.getElementById('recurTypeExpense').classList.remove('active'); };
+document.getElementById('recurTypeExpense').onclick = ()=>{ recurType='expense'; document.getElementById('recurTypeExpense').classList.add('active'); document.getElementById('recurTypeIncome').classList.remove('active'); };
+
+function saveRecur(){
+  const name = document.getElementById('recurName').value.trim();
+  const amount = Number(document.getElementById('recurAmount').value);
+  const day = Number(document.getElementById('recurDay').value);
+  if(!name){ alert('Ingresa un nombre'); return; }
+  if(!amount || amount<=0){ alert('Ingresa un monto válido'); return; }
+  if(!day || day<1 || day>31){ alert('Ingresa un día válido (1-31)'); return; }
+  state.recurring.push({ id: Date.now(), type: recurType, name, amount, day });
+  saveState();
+  closeRecurForm();
+  renderRecurList();
+  render();
+}
+
+// Init
+loadState();
+initView();
+render();
+
+document.getElementById('app').insertAdjacentHTML('afterend', '');
+</script>
+
+<div class="fab-row">
+  <button class="fab income" onclick="openTx('income')">+ Ingreso</button>
+  <button class="fab expense" onclick="openTx('expense')">+ Gasto</button>
+  <button class="fab settings" onclick="openSettings()" aria-label="Fijos">&#9881;</button>
+</div>
+
+</body>
+</html>
