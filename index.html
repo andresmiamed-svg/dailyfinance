@@ -72,6 +72,7 @@
   .receipt-row .ramt{font-weight:600;white-space:nowrap;}
   .receipt-row .rdel{background:none;border:none;color:var(--text-faint);font-size:16px;padding:4px 0 4px 10px;font-family:var(--font-sans);}
   .empty{padding:28px 14px;text-align:center;color:var(--text-faint);font-size:13px;}
+  .cat-dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex:0 0 auto;}
 
   /* Recurring list */
   .recur-row{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid var(--line);}
@@ -102,8 +103,12 @@
   .field input[type=number]{font-family:var(--font-mono);}
   .toggle-row{display:flex;gap:8px;}
   .toggle-row button{flex:1;padding:10px 0;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--text-dim);font-size:14px;font-family:var(--font-sans);}
+  .toggle-row button.active{background:var(--surface-2);color:var(--text);border-color:var(--text-dim);}
   .toggle-row button.active.income{background:var(--teal-dim);color:#DFF3EC;border-color:var(--teal-dim);}
   .toggle-row button.active.expense{background:var(--rust-dim);color:#FBE8DC;border-color:var(--rust-dim);}
+  .impact-box{background:var(--surface-2);border-radius:8px;padding:10px 12px;font-size:12.5px;color:var(--text-dim);line-height:1.5;margin:-2px 0 14px;min-height:0;}
+  .impact-box:empty{display:none;}
+  .impact-box b{color:var(--text);font-family:var(--font-mono);}
   .sheet-actions{display:flex;gap:10px;margin-top:18px;}
   .sheet-actions button{flex:1;padding:14px 0;border-radius:10px;border:none;font-size:15px;font-weight:600;font-family:var(--font-sans);}
   .btn-cancel{background:var(--surface-2);color:var(--text-dim);}
@@ -123,7 +128,7 @@
     </div>
     <div class="field">
       <label>Monto (COP)</label>
-      <input type="number" id="txAmount" placeholder="50000" inputmode="numeric">
+      <input type="number" id="txAmount" placeholder="50000" inputmode="numeric" oninput="updateTxImpact()">
     </div>
     <div class="field">
       <label>Descripción</label>
@@ -131,12 +136,18 @@
     </div>
     <div class="field">
       <label>Fecha</label>
-      <input type="date" id="txDate">
+      <input type="date" id="txDate" onchange="updateTxImpact()">
     </div>
+    <div class="field">
+      <label>Categoría</label>
+      <select id="txCategory"></select>
+    </div>
+    <div id="txImpact" class="impact-box"></div>
     <div class="sheet-actions">
       <button class="btn-cancel" onclick="closeTx()">Cancelar</button>
       <button class="btn-save" onclick="saveTx()">Guardar</button>
     </div>
+    <button class="add-recur-btn" id="txDeleteBtn" style="display:none;color:var(--rust);" onclick="deleteTxFromEdit()">Eliminar movimiento</button>
   </div>
 </div>
 
@@ -145,6 +156,8 @@
     <h2>Ingresos y gastos fijos</h2>
     <div id="recurList"></div>
     <button class="add-recur-btn" onclick="openRecurForm()">+ Agregar fijo (arriendo, préstamo, sueldo...)</button>
+    <button class="add-recur-btn" onclick="closeSettings(); openCategories();" style="margin-top:8px;">🏷️ Gestionar categorías</button>
+    <button class="add-recur-btn" onclick="closeSettings(); openGoal();" style="margin-top:8px;">🎯 Meta de ingreso</button>
     <div class="sheet-actions">
       <button class="btn-cancel" onclick="closeSettings()" style="flex:1;">Cerrar</button>
     </div>
@@ -174,12 +187,13 @@
     </div>
     <div class="field">
       <label>Monto mensual (COP)</label>
-      <input type="number" id="recurAmount" placeholder="1000000" inputmode="numeric">
+      <input type="number" id="recurAmount" placeholder="1000000" inputmode="numeric" oninput="updateRecurImpact()">
     </div>
     <div class="field">
       <label>Día del mes en que se cobra</label>
       <input type="number" id="recurDay" placeholder="5" min="1" max="31" inputmode="numeric">
     </div>
+    <div id="recurImpact" class="impact-box"></div>
     <div class="sheet-actions">
       <button class="btn-cancel" onclick="closeRecurForm()">Cancelar</button>
       <button class="btn-save" onclick="saveRecur()">Guardar</button>
@@ -192,15 +206,16 @@
     <h2 id="editAmountTitle">Editar monto</h2>
     <div class="field">
       <label>Nuevo monto mensual (COP)</label>
-      <input type="number" id="editAmountValue" placeholder="1220000" inputmode="numeric">
+      <input type="number" id="editAmountValue" placeholder="1220000" inputmode="numeric" oninput="updateEditImpact()">
     </div>
     <div class="field">
       <label>Aplica a partir de</label>
-      <input type="month" id="editAmountFrom">
+      <input type="month" id="editAmountFrom" onchange="updateEditImpact()">
     </div>
     <div class="sub" style="font-size:12px;color:var(--text-dim);margin-top:-8px;margin-bottom:14px;">
       Los meses anteriores conservan el monto anterior, para que tu historial no se altere.
     </div>
+    <div id="editImpact" class="impact-box"></div>
     <div class="sheet-actions">
       <button class="btn-cancel" onclick="closeEditAmount()">Cancelar</button>
       <button class="btn-save" onclick="saveEditAmount()">Guardar</button>
@@ -218,12 +233,63 @@
   </div>
 </div>
 
+<div class="overlay" id="categoriesOverlay">
+  <div class="sheet">
+    <h2>Categorías</h2>
+    <div id="categoriesList"></div>
+    <button class="add-recur-btn" onclick="openCategoryForm()">+ Crear categoría</button>
+    <div class="sheet-actions">
+      <button class="btn-cancel" onclick="closeCategories()" style="flex:1;">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="categoryFormOverlay">
+  <div class="sheet">
+    <h2>Nueva categoría</h2>
+    <div class="field">
+      <label>Nombre</label>
+      <input type="text" id="categoryName" placeholder="Comida, transporte, ocio...">
+    </div>
+    <div class="field">
+      <label>Color</label>
+      <input type="color" id="categoryColor" value="#4E9B85" style="height:44px;padding:4px;">
+    </div>
+    <div class="sheet-actions">
+      <button class="btn-cancel" onclick="closeCategoryForm()">Cancelar</button>
+      <button class="btn-save" onclick="saveCategory()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="goalOverlay">
+  <div class="sheet">
+    <h2>Meta de ingreso</h2>
+    <div class="toggle-row" style="margin-bottom:16px;">
+      <button id="goalTypeDaily" onclick="setGoalType('daily_income')">Ingreso diario</button>
+      <button id="goalTypeNet" onclick="setGoalType('net_income')">Neto del mes</button>
+    </div>
+    <div class="field">
+      <label id="goalAmountLabel">Monto meta diario (COP)</label>
+      <input type="number" id="goalAmount" placeholder="100000" inputmode="numeric">
+    </div>
+    <div class="sheet-actions">
+      <button class="btn-cancel" onclick="closeGoal()">Cancelar</button>
+      <button class="btn-save" onclick="saveGoal()">Guardar</button>
+    </div>
+    <button class="add-recur-btn" style="color:var(--rust);" onclick="clearGoal()">Eliminar meta</button>
+  </div>
+</div>
+
 <script>
 const STORAGE_KEY = 'finanzasDiarias_v1';
-let state = { recurring: [], transactions: [] };
+let state = { recurring: [], transactions: [], categories: [], goal: null };
 let txType = 'expense';
 let recurType = 'expense';
 let editingRecurId = null;
+let editingTxId = null;
+let categoryFormColor = '#4E9B85';
+let goalType = 'daily_income';
 
 function loadState(){
   try{
@@ -232,12 +298,18 @@ function loadState(){
   }catch(e){ console.warn('No se pudo cargar almacenamiento local', e); }
   if(!state.recurring) state.recurring = [];
   if(!state.transactions) state.transactions = [];
+  if(!state.categories) state.categories = [];
+  if(state.goal === undefined) state.goal = null;
   // migrate old flat-amount items to month-aware history
   state.recurring.forEach(r=>{
     if(!r.history){
       r.history = [{ fromMonth: '0001-01', amount: Number(r.amount) || 0 }];
     }
     r.history.sort((a,b)=> a.fromMonth.localeCompare(b.fromMonth));
+  });
+  // migrate existing transactions to have a category (uncategorized = safe default)
+  state.transactions.forEach(t=>{
+    if(!t.category) t.category = 'uncategorized';
   });
 }
 function saveState(){
@@ -281,17 +353,19 @@ function monthLabel(y,m){
   return names[m] + ' ' + y;
 }
 
-function computeMonthData(){
-  const dim = daysInMonth(viewYear, viewMonth);
-  const recurIncome = state.recurring.filter(r=>r.type==='income').reduce((s,r)=>s+getAmountForMonth(r,viewYear,viewMonth),0);
-  const recurExpense = state.recurring.filter(r=>r.type==='expense').reduce((s,r)=>s+getAmountForMonth(r,viewYear,viewMonth),0);
+function computeMonthData(y, m){
+  if(y===undefined) y = viewYear;
+  if(m===undefined) m = viewMonth;
+  const dim = daysInMonth(y, m);
+  const recurIncome = state.recurring.filter(r=>r.type==='income').reduce((s,r)=>s+getAmountForMonth(r,y,m),0);
+  const recurExpense = state.recurring.filter(r=>r.type==='expense').reduce((s,r)=>s+getAmountForMonth(r,y,m),0);
   const dailyIncomeBase = recurIncome / dim;
   const dailyExpenseBase = recurExpense / dim;
   const dailyNetBase = dailyIncomeBase - dailyExpenseBase;
 
   const monthTx = state.transactions.filter(tx=>{
     const d = new Date(tx.date+'T00:00:00');
-    return d.getFullYear()===viewYear && d.getMonth()===viewMonth;
+    return d.getFullYear()===y && d.getMonth()===m;
   });
 
   const perDay = {};
@@ -358,6 +432,7 @@ function renderChart(barValues){
 function render(){
   const data = computeMonthData();
   const isCurrentMonth = (()=>{ const t=new Date(); return t.getFullYear()===viewYear && t.getMonth()===viewMonth; })();
+  const goalStatus = computeGoalStatus(data);
 
   const recentTx = [...state.transactions].sort((a,b)=> b.date.localeCompare(a.date) || b.id-a.id).slice(0,25);
 
@@ -368,17 +443,32 @@ function render(){
     receiptHtml = recentTx.map(tx=>{
       const d = new Date(tx.date+'T00:00:00');
       const dateFmt = d.toLocaleDateString('es-CO', {day:'2-digit', month:'short'});
-      return `<div class="receipt-row">
-        <div class="rleft">
-          <span class="rname">${escapeHtml(tx.note || (tx.type==='income'?'Ingreso':'Gasto'))}</span>
-          <span class="rdate">${dateFmt}</span>
+      const cat = categoryById(tx.category);
+      return `<div class="receipt-row" style="cursor:pointer;" onclick="openTxEdit(${tx.id})">
+        <div class="rleft" style="flex-direction:row;align-items:center;gap:8px;">
+          <span class="cat-dot" style="background:${cat.color};"></span>
+          <div style="display:flex;flex-direction:column;gap:2px;overflow:hidden;">
+            <span class="rname">${escapeHtml(tx.note || (tx.type==='income'?'Ingreso':'Gasto'))}</span>
+            <span class="rdate">${dateFmt} · ${escapeHtml(cat.name)}</span>
+          </div>
         </div>
         <div style="display:flex;align-items:center;">
           <span class="ramt ${tx.type==='income'?'pos':'neg'}">${tx.type==='income'?'+':'-'}${fmtCOP(tx.amount)}</span>
-          <button class="rdel" onclick="deleteTx(${tx.id})">&times;</button>
+          <button class="rdel" onclick="event.stopPropagation(); deleteTx(${tx.id})">&times;</button>
         </div>
       </div>`;
     }).join('');
+  }
+
+  let goalHtml = '';
+  if(goalStatus){
+    goalHtml = `<div class="card net clickable" style="margin-bottom:22px;" onclick="openGoal()">
+      <div class="label">${goalStatus.label} <i class="tap-hint">&#9432;</i></div>
+      <div class="val ${goalStatus.met?'pos':'neg'}">${goalStatus.met ? '¡Meta cumplida!' : fmtCOP(Math.abs(goalStatus.diffTotal)) + ' por debajo'}</div>
+      <div class="mini-note" style="margin-top:4px;">${goalStatus.met
+        ? '+' + fmtCOP(Math.abs(goalStatus.diffTotal)) + ' por encima de la meta'
+        : 'Te faltan ' + fmtCOP(Math.abs(goalStatus.diffDaily)) + '/día para llegar'}</div>
+    </div>`;
   }
 
   document.getElementById('app').innerHTML = `
@@ -412,9 +502,16 @@ function render(){
       </div>
     </div>
 
+    ${goalHtml}
+
     <div class="chart-wrap">
       <div class="chart-title">Presión diaria (toca un día para ver detalle)</div>
       ${renderChart(data.barValues)}
+    </div>
+
+    <div class="chart-wrap">
+      <div class="chart-title">Gastos por categoría</div>
+      ${renderCategoryChart(data.monthTx)}
     </div>
 
     <div class="section-title">Movimientos recientes</div>
@@ -478,8 +575,20 @@ function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-// Transaction sheet
+// Category helpers
+function categoryById(id){
+  if(!id || id==='uncategorized') return { id:'uncategorized', name:'Sin categoría', color:'#5B6167' };
+  return state.categories.find(c=>c.id===id) || { id:'uncategorized', name:'Sin categoría', color:'#5B6167' };
+}
+function renderCategorySelect(selectedId){
+  const sel = document.getElementById('txCategory');
+  const opts = [{id:'uncategorized', name:'Sin categoría'}, ...state.categories];
+  sel.innerHTML = opts.map(c=>`<option value="${c.id}" ${c.id===(selectedId||'uncategorized')?'selected':''}>${escapeHtml(c.name)}</option>`).join('');
+}
+
+// Transaction sheet (add + edit)
 function openTx(type){
+  editingTxId = null;
   txType = type;
   document.getElementById('txTitle').textContent = type==='income' ? 'Agregar ingreso' : 'Agregar gasto';
   document.getElementById('txTypeIncome').classList.toggle('active', type==='income');
@@ -487,18 +596,65 @@ function openTx(type){
   document.getElementById('txAmount').value = '';
   document.getElementById('txNote').value = '';
   document.getElementById('txDate').value = todayStr();
+  document.getElementById('txDeleteBtn').style.display = 'none';
+  renderCategorySelect('uncategorized');
   document.getElementById('txOverlay').classList.add('open');
+  updateTxImpact();
 }
-function closeTx(){ document.getElementById('txOverlay').classList.remove('open'); }
-document.getElementById('txTypeIncome').onclick = ()=>{ txType='income'; document.getElementById('txTypeIncome').classList.add('active'); document.getElementById('txTypeExpense').classList.remove('active'); };
-document.getElementById('txTypeExpense').onclick = ()=>{ txType='expense'; document.getElementById('txTypeExpense').classList.add('active'); document.getElementById('txTypeIncome').classList.remove('active'); };
+function openTxEdit(id){
+  const tx = state.transactions.find(t=>t.id===id);
+  if(!tx) return;
+  editingTxId = id;
+  txType = tx.type;
+  document.getElementById('txTitle').textContent = 'Editar movimiento';
+  document.getElementById('txTypeIncome').classList.toggle('active', txType==='income');
+  document.getElementById('txTypeExpense').classList.toggle('active', txType==='expense');
+  document.getElementById('txAmount').value = tx.amount;
+  document.getElementById('txNote').value = tx.note || '';
+  document.getElementById('txDate').value = tx.date;
+  document.getElementById('txDeleteBtn').style.display = 'block';
+  renderCategorySelect(tx.category);
+  document.getElementById('txOverlay').classList.add('open');
+  updateTxImpact();
+}
+function closeTx(){ document.getElementById('txOverlay').classList.remove('open'); editingTxId = null; }
+document.getElementById('txTypeIncome').onclick = ()=>{ txType='income'; document.getElementById('txTypeIncome').classList.add('active'); document.getElementById('txTypeExpense').classList.remove('active'); updateTxImpact(); };
+document.getElementById('txTypeExpense').onclick = ()=>{ txType='expense'; document.getElementById('txTypeExpense').classList.add('active'); document.getElementById('txTypeIncome').classList.remove('active'); updateTxImpact(); };
+
+function updateTxImpact(){
+  const box = document.getElementById('txImpact');
+  const amt = Number(document.getElementById('txAmount').value) || 0;
+  if(amt <= 0){ box.innerHTML=''; return; }
+  const dateVal = document.getElementById('txDate').value || todayStr();
+  const [y,m] = dateVal.split('-').map(Number);
+  const dim = daysInMonth(y, m-1);
+  const perDay = amt / dim;
+  const data = computeMonthData(y, m-1);
+  // if editing, exclude the transaction's current amount so the preview shows the true before/after
+  let before = txType==='income' ? data.dailyIncomeEffective : data.dailyExpenseEffective;
+  if(editingTxId){
+    const orig = state.transactions.find(t=>t.id===editingTxId);
+    if(orig && orig.type===txType && orig.date===dateVal){
+      before -= (orig.amount / dim);
+    }
+  }
+  const after = before + perDay;
+  const label = txType==='income' ? 'ingreso' : 'gasto';
+  box.innerHTML = `Este movimiento equivale a <b>${fmtCOP(perDay)}</b>/día este mes · tu ${label} diario pasaría de <b>${fmtCOP(before)}</b> a <b>${fmtCOP(after)}</b>`;
+}
 
 function saveTx(){
   const amount = Number(document.getElementById('txAmount').value);
   const note = document.getElementById('txNote').value.trim();
   const date = document.getElementById('txDate').value || todayStr();
+  const category = document.getElementById('txCategory').value || 'uncategorized';
   if(!amount || amount <= 0){ alert('Ingresa un monto válido'); return; }
-  state.transactions.push({ id: Date.now(), type: txType, amount, note, date });
+  if(editingTxId){
+    const tx = state.transactions.find(t=>t.id===editingTxId);
+    if(tx){ tx.type = txType; tx.amount = amount; tx.note = note; tx.date = date; tx.category = category; }
+  } else {
+    state.transactions.push({ id: Date.now(), type: txType, amount, note, date, category });
+  }
   saveState();
   closeTx();
   const d = new Date(date+'T00:00:00');
@@ -510,6 +666,10 @@ function deleteTx(id){
   saveState();
   render();
 }
+function deleteTxFromEdit(){
+  if(editingTxId){ deleteTx(editingTxId); closeTx(); }
+}
+
 
 // Breakdown sheet
 function openBreakdown(type){
@@ -628,6 +788,21 @@ function openEditAmount(id){
   const t = new Date();
   document.getElementById('editAmountFrom').value = monthKey(t.getFullYear(), t.getMonth());
   document.getElementById('editAmountOverlay').classList.add('open');
+  updateEditImpact();
+}
+function updateEditImpact(){
+  const box = document.getElementById('editImpact');
+  const item = state.recurring.find(r=>r.id===editingRecurId);
+  const amt = Number(document.getElementById('editAmountValue').value) || 0;
+  const fromMonth = document.getElementById('editAmountFrom').value;
+  if(!item || !fromMonth || amt<=0){ box.innerHTML=''; return; }
+  const [y,m] = fromMonth.split('-').map(Number);
+  const dim = daysInMonth(y, m-1);
+  const perDay = amt / dim;
+  const oldPerDay = getAmountForMonth(item, y, m-1) / dim;
+  const delta = perDay - oldPerDay;
+  const sign = delta >= 0 ? '+' : '';
+  box.innerHTML = `Nuevo valor: <b>${fmtCOP(perDay)}</b>/día (antes ${fmtCOP(oldPerDay)}/día) · ${sign}${fmtCOP(delta)}/día a partir de ${fromMonth}`;
 }
 function closeEditAmount(){ document.getElementById('editAmountOverlay').classList.remove('open'); editingRecurId = null; }
 function saveEditAmount(){
@@ -654,11 +829,25 @@ function openRecurForm(){
   document.getElementById('recurName').value='';
   document.getElementById('recurAmount').value='';
   document.getElementById('recurDay').value='';
+  document.getElementById('recurImpact').innerHTML='';
   document.getElementById('recurFormOverlay').classList.add('open');
 }
 function closeRecurForm(){ document.getElementById('recurFormOverlay').classList.remove('open'); }
-document.getElementById('recurTypeIncome').onclick = ()=>{ recurType='income'; document.getElementById('recurTypeIncome').classList.add('active'); document.getElementById('recurTypeExpense').classList.remove('active'); };
-document.getElementById('recurTypeExpense').onclick = ()=>{ recurType='expense'; document.getElementById('recurTypeExpense').classList.add('active'); document.getElementById('recurTypeIncome').classList.remove('active'); };
+document.getElementById('recurTypeIncome').onclick = ()=>{ recurType='income'; document.getElementById('recurTypeIncome').classList.add('active'); document.getElementById('recurTypeExpense').classList.remove('active'); updateRecurImpact(); };
+document.getElementById('recurTypeExpense').onclick = ()=>{ recurType='expense'; document.getElementById('recurTypeExpense').classList.add('active'); document.getElementById('recurTypeIncome').classList.remove('active'); updateRecurImpact(); };
+function updateRecurImpact(){
+  const box = document.getElementById('recurImpact');
+  const amt = Number(document.getElementById('recurAmount').value) || 0;
+  if(amt<=0){ box.innerHTML=''; return; }
+  const t = new Date();
+  const dim = daysInMonth(t.getFullYear(), t.getMonth());
+  const perDay = amt / dim;
+  const data = computeMonthData(t.getFullYear(), t.getMonth());
+  const before = recurType==='income' ? data.dailyIncomeBase : data.dailyExpenseBase;
+  const after = before + perDay;
+  const label = recurType==='income' ? 'ingreso fijo' : 'gasto fijo';
+  box.innerHTML = `Equivale a <b>${fmtCOP(perDay)}</b>/día · tu ${label} diario pasaría de <b>${fmtCOP(before)}</b> a <b>${fmtCOP(after)}</b>`;
+}
 
 function saveRecur(){
   const name = document.getElementById('recurName').value.trim();
@@ -672,6 +861,123 @@ function saveRecur(){
   closeRecurForm();
   renderRecurList();
   render();
+}
+
+// Categories
+function openCategories(){
+  renderCategoriesList();
+  document.getElementById('categoriesOverlay').classList.add('open');
+}
+function closeCategories(){ document.getElementById('categoriesOverlay').classList.remove('open'); }
+function renderCategoriesList(){
+  const el = document.getElementById('categoriesList');
+  if(state.categories.length===0){
+    el.innerHTML = `<div class="empty">Sin categorías todavía.<br>Todo tus movimientos están como "Sin categoría".</div>`;
+    return;
+  }
+  el.innerHTML = state.categories.map(c=>`
+    <div class="recur-row">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="cat-dot" style="background:${c.color};"></span>
+        <span class="rname">${escapeHtml(c.name)}</span>
+      </div>
+      <button class="rdel" onclick="deleteCategory('${c.id}')">&times;</button>
+    </div>
+  `).join('');
+}
+function openCategoryForm(){
+  document.getElementById('categoryName').value = '';
+  document.getElementById('categoryColor').value = '#4E9B85';
+  document.getElementById('categoryFormOverlay').classList.add('open');
+}
+function closeCategoryForm(){ document.getElementById('categoryFormOverlay').classList.remove('open'); }
+function saveCategory(){
+  const name = document.getElementById('categoryName').value.trim();
+  const color = document.getElementById('categoryColor').value;
+  if(!name){ alert('Ingresa un nombre'); return; }
+  state.categories.push({ id: 'cat_'+Date.now(), name, color });
+  saveState();
+  closeCategoryForm();
+  renderCategoriesList();
+}
+function deleteCategory(id){
+  state.categories = state.categories.filter(c=>c.id!==id);
+  // reassign any transactions using this category back to uncategorized
+  state.transactions.forEach(t=>{ if(t.category===id) t.category='uncategorized'; });
+  saveState();
+  renderCategoriesList();
+  render();
+}
+
+// Income / net goal
+function openGoal(){
+  goalType = state.goal ? state.goal.type : 'daily_income';
+  document.getElementById('goalAmount').value = state.goal ? state.goal.amount : '';
+  updateGoalTypeUI();
+  document.getElementById('goalOverlay').classList.add('open');
+}
+function closeGoal(){ document.getElementById('goalOverlay').classList.remove('open'); }
+function setGoalType(type){ goalType = type; updateGoalTypeUI(); }
+function updateGoalTypeUI(){
+  document.getElementById('goalTypeDaily').classList.toggle('active', goalType==='daily_income');
+  document.getElementById('goalTypeNet').classList.toggle('active', goalType==='net_income');
+  document.getElementById('goalAmountLabel').textContent = goalType==='daily_income' ? 'Monto meta diario (COP)' : 'Monto meta neto del mes (COP)';
+}
+function saveGoal(){
+  const amount = Number(document.getElementById('goalAmount').value);
+  if(!amount || amount<=0){ alert('Ingresa un monto válido'); return; }
+  state.goal = { type: goalType, amount };
+  saveState();
+  closeGoal();
+  render();
+}
+function clearGoal(){
+  state.goal = null;
+  saveState();
+  closeGoal();
+  render();
+}
+function computeGoalStatus(data){
+  const g = state.goal;
+  if(!g || !g.amount) return null;
+  if(g.type === 'daily_income'){
+    const diff = g.amount - data.dailyIncomeEffective;
+    return { label:'Meta de ingreso diario', current:data.dailyIncomeEffective, target:g.amount, diffDaily:diff, diffTotal:diff*data.dim, met: diff<=0 };
+  } else {
+    const currentNet = data.totalIncome - data.totalExpense;
+    const diff = g.amount - currentNet;
+    return { label:'Meta neta del mes', current:currentNet, target:g.amount, diffDaily:diff/data.dim, diffTotal:diff, met: diff<=0 };
+  }
+}
+
+// Category spend chart
+function renderCategoryChart(monthTx){
+  const expenseTx = monthTx.filter(t=>t.type==='expense');
+  if(expenseTx.length===0){
+    return `<div class="empty">Sin gastos registrados este mes para categorizar.</div>`;
+  }
+  const totals = {};
+  expenseTx.forEach(t=>{
+    const cat = t.category || 'uncategorized';
+    totals[cat] = (totals[cat]||0) + Number(t.amount);
+  });
+  const totalSum = Object.values(totals).reduce((s,v)=>s+v,0);
+  const rows = Object.entries(totals).map(([catId,amt])=>{
+    const cat = categoryById(catId);
+    return { name: cat.name, color: cat.color, amt, pct: totalSum ? (amt/totalSum*100) : 0 };
+  }).sort((a,b)=>b.amt-a.amt);
+
+  return rows.map(r=>`
+    <div style="margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px;align-items:center;">
+        <span style="display:flex;align-items:center;gap:6px;"><span class="cat-dot" style="background:${r.color};"></span>${escapeHtml(r.name)}</span>
+        <span class="mini-note" style="font-size:12px;">${fmtCOP(r.amt)} · ${r.pct.toFixed(0)}%</span>
+      </div>
+      <div style="background:var(--surface-2);border-radius:4px;height:6px;overflow:hidden;">
+        <div style="width:${r.pct}%;height:100%;background:${r.color};"></div>
+      </div>
+    </div>
+  `).join('');
 }
 
 // Init
