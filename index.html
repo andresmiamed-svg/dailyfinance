@@ -193,6 +193,10 @@
       <label>Día del mes en que se cobra</label>
       <input type="number" id="recurDay" placeholder="5" min="1" max="31" inputmode="numeric">
     </div>
+    <div class="field">
+      <label>Categoría</label>
+      <select id="recurCategory"></select>
+    </div>
     <div id="recurImpact" class="impact-box"></div>
     <div class="sheet-actions">
       <button class="btn-cancel" onclick="closeRecurForm()">Cancelar</button>
@@ -214,6 +218,10 @@
     </div>
     <div class="sub" style="font-size:12px;color:var(--text-dim);margin-top:-8px;margin-bottom:14px;">
       Los meses anteriores conservan el monto anterior, para que tu historial no se altere.
+    </div>
+    <div class="field">
+      <label>Categoría</label>
+      <select id="editCategory"></select>
     </div>
     <div id="editImpact" class="impact-box"></div>
     <div class="sheet-actions">
@@ -306,6 +314,7 @@ function loadState(){
       r.history = [{ fromMonth: '0001-01', amount: Number(r.amount) || 0 }];
     }
     r.history.sort((a,b)=> a.fromMonth.localeCompare(b.fromMonth));
+    if(!r.category) r.category = 'uncategorized';
   });
   // migrate existing transactions to have a category (uncategorized = safe default)
   state.transactions.forEach(t=>{
@@ -510,7 +519,7 @@ function render(){
     </div>
 
     <div class="chart-wrap">
-      <div class="chart-title">Gastos por categoría</div>
+      <div class="chart-title">Gastos por categoría (fijos + registrados)</div>
       ${renderCategoryChart(data.monthTx)}
     </div>
 
@@ -580,8 +589,8 @@ function categoryById(id){
   if(!id || id==='uncategorized') return { id:'uncategorized', name:'Sin categoría', color:'#5B6167' };
   return state.categories.find(c=>c.id===id) || { id:'uncategorized', name:'Sin categoría', color:'#5B6167' };
 }
-function renderCategorySelect(selectedId){
-  const sel = document.getElementById('txCategory');
+function renderCategorySelect(selectId, selectedId){
+  const sel = document.getElementById(selectId);
   const opts = [{id:'uncategorized', name:'Sin categoría'}, ...state.categories];
   sel.innerHTML = opts.map(c=>`<option value="${c.id}" ${c.id===(selectedId||'uncategorized')?'selected':''}>${escapeHtml(c.name)}</option>`).join('');
 }
@@ -597,7 +606,7 @@ function openTx(type){
   document.getElementById('txNote').value = '';
   document.getElementById('txDate').value = todayStr();
   document.getElementById('txDeleteBtn').style.display = 'none';
-  renderCategorySelect('uncategorized');
+  renderCategorySelect('txCategory', 'uncategorized');
   document.getElementById('txOverlay').classList.add('open');
   updateTxImpact();
 }
@@ -613,7 +622,7 @@ function openTxEdit(id){
   document.getElementById('txNote').value = tx.note || '';
   document.getElementById('txDate').value = tx.date;
   document.getElementById('txDeleteBtn').style.display = 'block';
-  renderCategorySelect(tx.category);
+  renderCategorySelect('txCategory', tx.category);
   document.getElementById('txOverlay').classList.add('open');
   updateTxImpact();
 }
@@ -760,9 +769,12 @@ function renderRecurList(){
   }
   el.innerHTML = state.recurring.map(r=>`
     <div class="recur-row">
-      <div>
-        <div class="rname">${escapeHtml(r.name)}</div>
-        <div class="rday">Día ${r.day} de cada mes</div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="cat-dot" style="background:${categoryById(r.category).color};"></span>
+        <div>
+          <div class="rname">${escapeHtml(r.name)}</div>
+          <div class="rday">Día ${r.day} de cada mes · ${escapeHtml(categoryById(r.category).name)}</div>
+        </div>
       </div>
       <div style="display:flex;align-items:center;">
         <span class="ramt ${r.type==='income'?'pos':'neg'}">${r.type==='income'?'+':'-'}${fmtCOP(currentAmount(r))}</span>
@@ -783,10 +795,11 @@ function openEditAmount(id){
   editingRecurId = id;
   const item = state.recurring.find(r=>r.id===id);
   if(!item) return;
-  document.getElementById('editAmountTitle').textContent = 'Editar monto · ' + item.name;
+  document.getElementById('editAmountTitle').textContent = 'Editar · ' + item.name;
   document.getElementById('editAmountValue').value = currentAmount(item);
   const t = new Date();
   document.getElementById('editAmountFrom').value = monthKey(t.getFullYear(), t.getMonth());
+  renderCategorySelect('editCategory', item.category);
   document.getElementById('editAmountOverlay').classList.add('open');
   updateEditImpact();
 }
@@ -816,6 +829,7 @@ function saveEditAmount(){
   if(existing){ existing.amount = amount; }
   else{ item.history.push({ fromMonth, amount }); }
   item.history.sort((a,b)=> a.fromMonth.localeCompare(b.fromMonth));
+  item.category = document.getElementById('editCategory').value || 'uncategorized';
   saveState();
   closeEditAmount();
   renderRecurList();
@@ -830,6 +844,7 @@ function openRecurForm(){
   document.getElementById('recurAmount').value='';
   document.getElementById('recurDay').value='';
   document.getElementById('recurImpact').innerHTML='';
+  renderCategorySelect('recurCategory', 'uncategorized');
   document.getElementById('recurFormOverlay').classList.add('open');
 }
 function closeRecurForm(){ document.getElementById('recurFormOverlay').classList.remove('open'); }
@@ -853,10 +868,11 @@ function saveRecur(){
   const name = document.getElementById('recurName').value.trim();
   const amount = Number(document.getElementById('recurAmount').value);
   const day = Number(document.getElementById('recurDay').value);
+  const category = document.getElementById('recurCategory').value || 'uncategorized';
   if(!name){ alert('Ingresa un nombre'); return; }
   if(!amount || amount<=0){ alert('Ingresa un monto válido'); return; }
   if(!day || day<1 || day>31){ alert('Ingresa un día válido (1-31)'); return; }
-  state.recurring.push({ id: Date.now(), type: recurType, name, day, history: [{ fromMonth: monthKey(new Date().getFullYear(), new Date().getMonth()), amount }] });
+  state.recurring.push({ id: Date.now(), type: recurType, name, day, category, history: [{ fromMonth: monthKey(new Date().getFullYear(), new Date().getMonth()), amount }] });
   saveState();
   closeRecurForm();
   renderRecurList();
@@ -952,16 +968,19 @@ function computeGoalStatus(data){
 
 // Category spend chart
 function renderCategoryChart(monthTx){
-  const expenseTx = monthTx.filter(t=>t.type==='expense');
-  if(expenseTx.length===0){
-    return `<div class="empty">Sin gastos registrados este mes para categorizar.</div>`;
-  }
   const totals = {};
-  expenseTx.forEach(t=>{
+  monthTx.filter(t=>t.type==='expense').forEach(t=>{
     const cat = t.category || 'uncategorized';
     totals[cat] = (totals[cat]||0) + Number(t.amount);
   });
+  state.recurring.filter(r=>r.type==='expense').forEach(r=>{
+    const cat = r.category || 'uncategorized';
+    totals[cat] = (totals[cat]||0) + getAmountForMonth(r, viewYear, viewMonth);
+  });
   const totalSum = Object.values(totals).reduce((s,v)=>s+v,0);
+  if(totalSum === 0){
+    return `<div class="empty">Sin gastos este mes para categorizar.</div>`;
+  }
   const rows = Object.entries(totals).map(([catId,amt])=>{
     const cat = categoryById(catId);
     return { name: cat.name, color: cat.color, amt, pct: totalSum ? (amt/totalSum*100) : 0 };
