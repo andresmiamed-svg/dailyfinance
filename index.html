@@ -4,80 +4,83 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Diario">
 <title>Finanzas Diarias</title>
 <style>
   :root{
-    --bg:#14171A;
-    --surface:#1C2024;
-    --surface-2:#23282D;
-    --line:#2E3338;
-    --text:#ECE8DE;
-    --text-dim:#8B9199;
-    --text-faint:#5B6167;
-    --rust:#C2622E;
-    --rust-dim:#8A4A24;
-    --teal:#4E9B85;
-    --teal-dim:#376F62;
+    --bg:#F2F2F7;
+    --surface:#FFFFFF;
+    --surface-2:#EDEDF0;
+    --surface-3:#FFFFFF;
+    --line:rgba(60,60,67,0.29);
+    --text:#000000;
+    --text-dim:rgba(60,60,67,0.6);
+    --text-faint:rgba(60,60,67,0.3);
+    --blue:#007AFF;
+    --blue-dim:rgba(0,122,255,0.12);
+    --teal:#34C759;
+    --teal-dim:rgba(52,199,89,0.12);
+    --rust:#FF3B30;
+    --rust-dim:rgba(255,59,48,0.12);
     --font-sans:-apple-system,BlinkMacSystemFont,"SF Pro Text",sans-serif;
-    --font-mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --font-mono:-apple-system,BlinkMacSystemFont,"SF Pro Text",sans-serif;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
   html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--font-sans);
-    -webkit-user-select:none;user-select:none;overscroll-behavior-y:none;}
+    -webkit-user-select:none;user-select:none;overscroll-behavior-y:none;font-variant-numeric:tabular-nums;}
   body{padding-bottom:env(safe-area-inset-bottom);min-height:100vh;}
   .app{max-width:480px;margin:0 auto;padding:calc(env(safe-area-inset-top) + 18px) 16px 100px;}
 
   /* Header */
-  .header{margin-bottom:20px;}
-  .header .month{font-size:13px;color:var(--text-dim);letter-spacing:.04em;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center;}
+  .header{margin-bottom:22px;}
+  .header .month{font-size:13px;color:var(--text-dim);letter-spacing:.02em;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center;}
   .month-nav{display:flex;gap:14px;align-items:center;}
-  .month-nav button{background:none;border:none;color:var(--text-dim);font-size:15px;padding:4px 8px;font-family:var(--font-sans);}
-  .header h1{font-size:26px;font-weight:600;margin:4px 0 0;font-family:var(--font-mono);letter-spacing:-0.02em;}
-  .header .sub{font-size:13px;color:var(--text-dim);margin-top:2px;}
+  .month-nav button{background:none;border:none;color:var(--blue);font-size:15px;padding:4px 8px;font-family:var(--font-sans);}
+  .header h1{font-size:32px;font-weight:700;margin:6px 0 0;font-family:var(--font-mono);letter-spacing:-0.02em;}
+  .header .sub{font-size:13px;color:var(--text-dim);margin-top:3px;}
 
   /* Summary cards */
   .cards{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:22px;}
-  .card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;}
-  .card .label{font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;}
-  .card .val{font-family:var(--font-mono);font-size:18px;font-weight:600;}
-  .card.net{grid-column:1/-1;background:var(--surface-2);}
+  .card{background:var(--surface);border-radius:14px;padding:14px 16px;}
+  .card .label{font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;}
+  .card .val{font-family:var(--font-mono);font-size:19px;font-weight:600;letter-spacing:-0.01em;}
+  .card.net{grid-column:1/-1;background:var(--surface);}
   .card.net .val{font-size:24px;}
   .card.clickable{cursor:pointer;}
   .card.clickable:active{background:var(--surface-2);}
   .card .label{display:flex;align-items:center;gap:4px;}
-  .card .label i{font-size:9px;color:var(--text-faint);}
+  .card .label i{font-size:9px;color:var(--blue);font-style:normal;}
   .pos{color:var(--teal);}
   .neg{color:var(--rust);}
 
   /* Chart */
-  .chart-wrap{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 10px 8px;margin-bottom:22px;}
-  .chart-title{font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.04em;padding:0 6px 10px;}
+  .chart-wrap{background:var(--surface);border-radius:14px;padding:16px 12px 10px;margin-bottom:22px;}
+  .chart-title{font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.03em;padding:0 6px 12px;}
   svg{display:block;width:100%;}
   .day-label{font-size:8px;fill:var(--text-faint);font-family:var(--font-mono);}
   .today-marker{stroke:var(--text-dim);stroke-width:1;stroke-dasharray:2,2;}
 
   /* Section titles */
-  .section-title{font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.04em;margin:0 4px 10px;display:flex;justify-content:space-between;align-items:center;}
-  .section-title .link{color:var(--text);font-size:12px;text-transform:none;letter-spacing:0;}
+  .section-title{font-size:13px;color:var(--text-dim);letter-spacing:.01em;margin:0 4px 10px;display:flex;justify-content:space-between;align-items:center;}
+  .section-title .link{color:var(--blue);font-size:13px;text-transform:none;letter-spacing:0;}
 
   /* Receipt roll */
-  .receipt{background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:22px;}
-  .receipt-row{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px dashed var(--line);font-family:var(--font-mono);font-size:13px;}
+  .receipt{background:var(--surface);border-radius:14px;overflow:hidden;margin-bottom:22px;}
+  .receipt-row{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line);font-family:var(--font-mono);font-size:13px;}
   .receipt-row:last-child{border-bottom:none;}
   .receipt-row .rleft{display:flex;flex-direction:column;gap:2px;overflow:hidden;}
-  .receipt-row .rname{font-family:var(--font-sans);font-size:13.5px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:190px;}
-  .receipt-row .rdate{font-size:11px;color:var(--text-faint);}
+  .receipt-row .rname{font-family:var(--font-sans);font-size:15px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:190px;}
+  .receipt-row .rdate{font-size:12px;color:var(--text-dim);}
   .receipt-row .ramt{font-weight:600;white-space:nowrap;}
-  .receipt-row .rdel{background:none;border:none;color:var(--text-faint);font-size:16px;padding:4px 0 4px 10px;font-family:var(--font-sans);}
+  .receipt-row .rdel{background:none;border:none;color:var(--text-faint);font-size:18px;padding:4px 0 4px 10px;font-family:var(--font-sans);}
   .empty{padding:28px 14px;text-align:center;color:var(--text-faint);font-size:13px;}
   .cat-dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex:0 0 auto;}
 
   /* Recurring list */
-  .recur-row{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid var(--line);}
+  .recur-row{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line);}
   .recur-row:last-child{border-bottom:none;}
-  .recur-row .rname{font-size:14px;}
+  .recur-row .rname{font-size:15px;}
   .recur-row .rday{font-size:11px;color:var(--text-faint);margin-top:2px;}
   .mini-note{font-size:11px;color:var(--text-faint);font-weight:400;}
   .recur-row .ramt{font-family:var(--font-mono);font-weight:600;font-size:13.5px;}
@@ -85,35 +88,36 @@
 
   /* FAB */
   .fab-row{position:sticky;bottom:0;left:0;right:0;display:flex;gap:10px;padding:14px 16px calc(14px + env(safe-area-inset-bottom));
-    background:linear-gradient(to top, var(--bg) 60%, transparent);max-width:480px;margin:0 auto;}
-  .fab{flex:1;border:none;border-radius:12px;padding:15px 0;font-size:15px;font-weight:600;font-family:var(--font-sans);}
-  .fab.income{background:var(--teal-dim);color:#DFF3EC;}
-  .fab.expense{background:var(--rust-dim);color:#FBE8DC;}
-  .fab.settings{flex:0 0 48px;background:var(--surface-2);color:var(--text-dim);border:1px solid var(--line);}
+    background:linear-gradient(to top, var(--bg) 65%, transparent);max-width:480px;margin:0 auto;}
+  .fab{flex:1;border:none;border-radius:14px;padding:15px 0;font-size:16px;font-weight:600;font-family:var(--font-sans);}
+  .fab.income{background:var(--teal);color:#FFFFFF;}
+  .fab.expense{background:var(--rust);color:#FFFFFF;}
+  .fab.settings{flex:0 0 50px;background:var(--surface-2);color:var(--text-dim);}
 
   /* Sheet / modal */
-  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:flex-end;z-index:20;}
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);display:none;align-items:flex-end;z-index:20;}
   .overlay.open{display:flex;}
-  .sheet{background:var(--surface);width:100%;max-width:480px;margin:0 auto;border-radius:18px 18px 0 0;padding:20px 18px calc(20px + env(safe-area-inset-bottom));max-height:85vh;overflow-y:auto;}
-  .sheet h2{font-size:17px;margin:0 0 16px;font-weight:600;}
+  .sheet{background:var(--surface);width:100%;max-width:480px;margin:0 auto;border-radius:20px 20px 0 0;padding:20px 18px calc(20px + env(safe-area-inset-bottom));max-height:85vh;overflow-y:auto;box-shadow:0 -8px 30px rgba(0,0,0,0.12);}
+  .sheet h2{font-size:19px;margin:0 0 16px;font-weight:700;letter-spacing:-0.01em;}
   .field{margin-bottom:14px;}
   .field label{display:block;font-size:12px;color:var(--text-dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:.03em;}
-  .field input,.field select{width:100%;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;color:var(--text);
-    padding:11px 12px;font-size:15px;font-family:var(--font-sans);}
+  .field input,.field select{width:100%;background:var(--surface-2);border:none;border-radius:10px;color:var(--text);
+    padding:12px 12px;font-size:16px;font-family:var(--font-sans);}
   .field input[type=number]{font-family:var(--font-mono);}
-  .toggle-row{display:flex;gap:8px;}
-  .toggle-row button{flex:1;padding:10px 0;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--text-dim);font-size:14px;font-family:var(--font-sans);}
-  .toggle-row button.active{background:var(--surface-2);color:var(--text);border-color:var(--text-dim);}
-  .toggle-row button.active.income{background:var(--teal-dim);color:#DFF3EC;border-color:var(--teal-dim);}
-  .toggle-row button.active.expense{background:var(--rust-dim);color:#FBE8DC;border-color:var(--rust-dim);}
-  .impact-box{background:var(--surface-2);border-radius:8px;padding:10px 12px;font-size:12.5px;color:var(--text-dim);line-height:1.5;margin:-2px 0 14px;min-height:0;}
+  .toggle-row{display:flex;gap:8px;background:var(--surface-2);border-radius:10px;padding:3px;}
+  .toggle-row button{flex:1;padding:9px 0;border-radius:8px;border:none;background:transparent;color:var(--text-dim);font-size:14px;font-family:var(--font-sans);}
+  .toggle-row.compact button{font-size:12.5px;padding:9px 2px;}
+  .toggle-row button.active{background:var(--surface-3);color:var(--text);}
+  .toggle-row button.active.income{background:var(--teal);color:#FFFFFF;}
+  .toggle-row button.active.expense{background:var(--rust);color:#FFFFFF;}
+  .impact-box{background:var(--blue-dim);border-radius:10px;padding:11px 12px;font-size:12.5px;color:var(--text-dim);line-height:1.5;margin:-2px 0 14px;min-height:0;}
   .impact-box:empty{display:none;}
-  .impact-box b{color:var(--text);font-family:var(--font-mono);}
+  .impact-box b{color:var(--blue);font-family:var(--font-mono);}
   .sheet-actions{display:flex;gap:10px;margin-top:18px;}
-  .sheet-actions button{flex:1;padding:14px 0;border-radius:10px;border:none;font-size:15px;font-weight:600;font-family:var(--font-sans);}
-  .btn-cancel{background:var(--surface-2);color:var(--text-dim);}
-  .btn-save{background:var(--text);color:var(--bg);}
-  .add-recur-btn{width:100%;padding:12px 0;border-radius:8px;border:1px dashed var(--line);background:none;color:var(--text-dim);font-size:14px;margin-top:12px;font-family:var(--font-sans);}
+  .sheet-actions button{flex:1;padding:15px 0;border-radius:12px;border:none;font-size:16px;font-weight:600;font-family:var(--font-sans);}
+  .btn-cancel{background:var(--surface-2);color:var(--text);}
+  .btn-save{background:var(--blue);color:#FFFFFF;}
+  .add-recur-btn{width:100%;padding:13px 0;border-radius:10px;border:none;background:var(--surface-2);color:var(--blue);font-size:14px;font-weight:600;margin-top:12px;font-family:var(--font-sans);}
 </style>
 </head>
 <body>
@@ -273,8 +277,9 @@
 <div class="overlay" id="goalOverlay">
   <div class="sheet">
     <h2>Meta de ingreso</h2>
-    <div class="toggle-row" style="margin-bottom:16px;">
-      <button id="goalTypeDaily" onclick="setGoalType('daily_income')">Ingreso diario</button>
+    <div class="toggle-row compact" style="margin-bottom:16px;">
+      <button id="goalTypeDaily" onclick="setGoalType('daily_income')">Diario</button>
+      <button id="goalTypeGross" onclick="setGoalType('gross_income')">Bruto del mes</button>
       <button id="goalTypeNet" onclick="setGoalType('net_income')">Neto del mes</button>
     </div>
     <div class="field">
@@ -586,8 +591,8 @@ function escapeHtml(s){
 
 // Category helpers
 function categoryById(id){
-  if(!id || id==='uncategorized') return { id:'uncategorized', name:'Sin categoría', color:'#5B6167' };
-  return state.categories.find(c=>c.id===id) || { id:'uncategorized', name:'Sin categoría', color:'#5B6167' };
+  if(!id || id==='uncategorized') return { id:'uncategorized', name:'Sin categoría', color:'#8E8E93' };
+  return state.categories.find(c=>c.id===id) || { id:'uncategorized', name:'Sin categoría', color:'#8E8E93' };
 }
 function renderCategorySelect(selectId, selectedId){
   const sel = document.getElementById(selectId);
@@ -936,8 +941,14 @@ function closeGoal(){ document.getElementById('goalOverlay').classList.remove('o
 function setGoalType(type){ goalType = type; updateGoalTypeUI(); }
 function updateGoalTypeUI(){
   document.getElementById('goalTypeDaily').classList.toggle('active', goalType==='daily_income');
+  document.getElementById('goalTypeGross').classList.toggle('active', goalType==='gross_income');
   document.getElementById('goalTypeNet').classList.toggle('active', goalType==='net_income');
-  document.getElementById('goalAmountLabel').textContent = goalType==='daily_income' ? 'Monto meta diario (COP)' : 'Monto meta neto del mes (COP)';
+  const labels = {
+    daily_income: 'Monto meta diario (COP)',
+    gross_income: 'Monto meta bruto del mes (COP)',
+    net_income: 'Monto meta neto del mes (COP)'
+  };
+  document.getElementById('goalAmountLabel').textContent = labels[goalType];
 }
 function saveGoal(){
   const amount = Number(document.getElementById('goalAmount').value);
@@ -959,6 +970,9 @@ function computeGoalStatus(data){
   if(g.type === 'daily_income'){
     const diff = g.amount - data.dailyIncomeEffective;
     return { label:'Meta de ingreso diario', current:data.dailyIncomeEffective, target:g.amount, diffDaily:diff, diffTotal:diff*data.dim, met: diff<=0 };
+  } else if(g.type === 'gross_income'){
+    const diff = g.amount - data.totalIncome;
+    return { label:'Meta de ingreso bruto del mes', current:data.totalIncome, target:g.amount, diffDaily:diff/data.dim, diffTotal:diff, met: diff<=0 };
   } else {
     const currentNet = data.totalIncome - data.totalExpense;
     const diff = g.amount - currentNet;
