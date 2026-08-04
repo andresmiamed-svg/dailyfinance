@@ -77,6 +77,19 @@
   .empty{padding:28px 14px;text-align:center;color:var(--text-faint);font-size:13px;}
   .cat-dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex:0 0 auto;}
 
+  /* Goal / total-mes hero (top) */
+  .goal-hero{background:var(--surface);border-radius:16px;padding:16px 18px;margin-bottom:14px;cursor:pointer;}
+  .goal-hero-label{font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.03em;display:flex;justify-content:space-between;align-items:center;}
+  .goal-hero-val{font-family:var(--font-mono);font-size:22px;font-weight:700;margin-top:6px;letter-spacing:-0.01em;}
+  .goal-hero-track{background:var(--surface-2);border-radius:4px;height:6px;overflow:hidden;margin-top:10px;}
+  .goal-hero-fill{height:100%;border-radius:4px;}
+  .edit-pill{background:var(--blue-dim);color:var(--blue);border:none;border-radius:20px;padding:5px 11px;font-size:11px;font-family:var(--font-sans);text-transform:none;letter-spacing:0;font-weight:600;}
+
+  /* Daily-available hero (central focus) */
+  .daily-hero{background:var(--surface);border-radius:18px;padding:26px 20px;margin-bottom:22px;text-align:center;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,0.06);}
+  .daily-hero-label{font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.03em;display:flex;justify-content:center;align-items:center;gap:4px;}
+  .daily-hero-val{font-family:var(--font-mono);font-size:42px;font-weight:700;letter-spacing:-0.02em;margin:8px 0 6px;}
+
   /* Recurring list */
   .recur-row{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line);}
   .recur-row:last-child{border-bottom:none;}
@@ -161,7 +174,7 @@
     <div id="recurList"></div>
     <button class="add-recur-btn" onclick="openRecurForm()">+ Agregar fijo (arriendo, préstamo, sueldo...)</button>
     <button class="add-recur-btn" onclick="closeSettings(); openCategories();" style="margin-top:8px;">🏷️ Gestionar categorías</button>
-    <button class="add-recur-btn" onclick="closeSettings(); openGoal();" style="margin-top:8px;">🎯 Meta de ingreso</button>
+    <button class="add-recur-btn" onclick="closeSettings(); openGoal();" style="margin-top:8px;">🎯 Meta neta del mes</button>
     <div class="sheet-actions">
       <button class="btn-cancel" onclick="closeSettings()" style="flex:1;">Cerrar</button>
     </div>
@@ -276,21 +289,29 @@
 
 <div class="overlay" id="goalOverlay">
   <div class="sheet">
-    <h2>Meta de ingreso</h2>
-    <div class="toggle-row compact" style="margin-bottom:16px;">
-      <button id="goalTypeDaily" onclick="setGoalType('daily_income')">Diario</button>
-      <button id="goalTypeGross" onclick="setGoalType('gross_income')">Bruto del mes</button>
-      <button id="goalTypeNet" onclick="setGoalType('net_income')">Neto del mes</button>
+    <h2>Meta neta del mes</h2>
+    <div class="sub" style="font-size:13px;color:var(--text-dim);margin-top:-8px;margin-bottom:16px;">
+      Cuánto quieres tener de sobra (ingresos menos gastos) al terminar el mes.
     </div>
     <div class="field">
-      <label id="goalAmountLabel">Monto meta diario (COP)</label>
-      <input type="number" id="goalAmount" placeholder="100000" inputmode="numeric">
+      <label>Monto meta (COP)</label>
+      <input type="number" id="goalAmount" placeholder="500000" inputmode="numeric">
     </div>
     <div class="sheet-actions">
       <button class="btn-cancel" onclick="closeGoal()">Cancelar</button>
       <button class="btn-save" onclick="saveGoal()">Guardar</button>
     </div>
     <button class="add-recur-btn" style="color:var(--rust);" onclick="clearGoal()">Eliminar meta</button>
+  </div>
+</div>
+
+<div class="overlay" id="dailyTrendOverlay">
+  <div class="sheet">
+    <h2>Evolución del disponible diario</h2>
+    <div id="dailyTrendContent"></div>
+    <div class="sheet-actions">
+      <button class="btn-cancel" onclick="closeDailyTrend()" style="flex:1;">Cerrar</button>
+    </div>
   </div>
 </div>
 
@@ -474,14 +495,23 @@ function render(){
     }).join('');
   }
 
-  let goalHtml = '';
+  let topHeroHtml;
+  const currentNet = data.totalIncome - data.totalExpense;
   if(goalStatus){
-    goalHtml = `<div class="card net clickable" style="margin-bottom:22px;" onclick="openGoal()">
-      <div class="label">${goalStatus.label} <i class="tap-hint">&#9432;</i></div>
-      <div class="val ${goalStatus.met?'pos':'neg'}">${goalStatus.met ? '¡Meta cumplida!' : fmtCOP(Math.abs(goalStatus.diffTotal)) + ' por debajo'}</div>
-      <div class="mini-note" style="margin-top:4px;">${goalStatus.met
-        ? '+' + fmtCOP(Math.abs(goalStatus.diffTotal)) + ' por encima de la meta'
-        : 'Te faltan ' + fmtCOP(Math.abs(goalStatus.diffDaily)) + '/día para llegar'}</div>
+    const pct = goalStatus.target > 0 ? Math.max(0, Math.min(100, (goalStatus.current/goalStatus.target)*100)) : 0;
+    topHeroHtml = `<div class="goal-hero" onclick="openMonthTotal()">
+      <div class="goal-hero-label">Meta neta del mes <button class="edit-pill" onclick="event.stopPropagation(); openGoal();">&#9998; Editar</button></div>
+      <div class="goal-hero-val ${goalStatus.met?'pos':''}">${fmtCOP(goalStatus.current)} <span style="font-size:13px;color:var(--text-dim);font-weight:400;">de ${fmtCOP(goalStatus.target)}</span></div>
+      <div class="goal-hero-track"><div class="goal-hero-fill" style="width:${pct}%;background:${goalStatus.met?'var(--teal)':'var(--blue)'};"></div></div>
+      <div class="mini-note" style="margin-top:8px;">${goalStatus.met
+        ? '¡Meta cumplida! +' + fmtCOP(Math.abs(goalStatus.diffTotal)) + ' por encima'
+        : fmtCOP(Math.abs(goalStatus.diffTotal)) + ' para llegar · ' + fmtCOP(Math.abs(goalStatus.diffDaily)) + '/día restantes'}</div>
+    </div>`;
+  } else {
+    topHeroHtml = `<div class="goal-hero" onclick="openMonthTotal()">
+      <div class="goal-hero-label">Total del mes <button class="edit-pill" onclick="event.stopPropagation(); openGoal();">&#127919; Fijar meta</button></div>
+      <div class="goal-hero-val ${currentNet>=0?'pos':'neg'}">${fmtCOP(currentNet)} <span style="font-size:13px;color:var(--text-dim);font-weight:400;">neto</span></div>
+      <div class="mini-note" style="margin-top:8px;">Ingresos ${fmtCOP(data.totalIncome)} · Gastos ${fmtCOP(data.totalExpense)}</div>
     </div>`;
   }
 
@@ -495,8 +525,14 @@ function render(){
           <button onclick="changeMonth(1)">&rarr;</button>
         </div>
       </div>
-      <h1>${fmtCOP(data.dailyNetEffective)} <span style="font-size:14px;color:var(--text-dim);font-weight:400;">/ día real</span></h1>
-      <div class="sub">Base solo con fijos: ${fmtCOP(data.dailyNetBase)} / día</div>
+    </div>
+
+    ${topHeroHtml}
+
+    <div class="daily-hero" onclick="openDailyTrend()">
+      <div class="daily-hero-label">Disponible hoy <i class="tap-hint">&#9432;</i></div>
+      <div class="daily-hero-val ${data.dailyNetEffective>=0?'pos':'neg'}">${fmtCOP(data.dailyNetEffective)}</div>
+      <div class="mini-note">Base solo con fijos: ${fmtCOP(data.dailyNetBase)} / día</div>
     </div>
 
     <div class="cards">
@@ -510,22 +546,11 @@ function render(){
         <div class="val neg">${fmtCOP(data.dailyExpenseEffective)}</div>
         <div class="mini-note" style="margin-top:4px;">Fijo: ${fmtCOP(data.dailyExpenseBase)}</div>
       </div>
-      <div class="card net clickable" onclick="openMonthTotal()">
-        <div class="label">Total mes: ingresos ${fmtCOP(data.totalIncome)} · gastos ${fmtCOP(data.totalExpense)}</div>
-        <div class="val ${data.totalIncome-data.totalExpense>=0?'pos':'neg'}">${fmtCOP(data.totalIncome-data.totalExpense)} neto</div>
-      </div>
     </div>
-
-    ${goalHtml}
 
     <div class="chart-wrap">
       <div class="chart-title">Presión diaria (toca un día para ver detalle)</div>
       ${renderChart(data.barValues)}
-    </div>
-
-    <div class="chart-wrap">
-      <div class="chart-title">Gastos por categoría (fijos + registrados)</div>
-      ${renderCategoryChart(data.monthTx)}
     </div>
 
     <div class="section-title">Movimientos recientes</div>
@@ -701,8 +726,15 @@ function openBreakdown(type){
   if(items.length===0 && txThisMonth.length===0){
     listEl.innerHTML = `<div class="empty">Sin ${type==='income'?'ingresos':'gastos'} fijos agregados.<br>Ábrelos desde el ícono de engranaje.</div>`;
   } else {
+    let html = '';
+    if(type==='expense'){
+      html += `<div class="section-title" style="margin:0 0 10px;">Por categoría, al día</div>`;
+      html += renderCategoryChart(txThisMonth, type, dim);
+      html += `<div style="height:1px;background:var(--line);margin:16px 0;"></div>`;
+      html += `<div class="section-title" style="margin:0 0 10px;">Qué compone el total</div>`;
+    }
     const fixedTotal = items.reduce((s,r)=>s+r.monthAmount,0);
-    let html = items.map(r=>{
+    html += items.map(r=>{
       const perDay = r.monthAmount / dim;
       return `<div class="recur-row">
         <div>
@@ -930,30 +962,16 @@ function deleteCategory(id){
   render();
 }
 
-// Income / net goal
+// Net-of-month goal
 function openGoal(){
-  goalType = state.goal ? state.goal.type : 'daily_income';
   document.getElementById('goalAmount').value = state.goal ? state.goal.amount : '';
-  updateGoalTypeUI();
   document.getElementById('goalOverlay').classList.add('open');
 }
 function closeGoal(){ document.getElementById('goalOverlay').classList.remove('open'); }
-function setGoalType(type){ goalType = type; updateGoalTypeUI(); }
-function updateGoalTypeUI(){
-  document.getElementById('goalTypeDaily').classList.toggle('active', goalType==='daily_income');
-  document.getElementById('goalTypeGross').classList.toggle('active', goalType==='gross_income');
-  document.getElementById('goalTypeNet').classList.toggle('active', goalType==='net_income');
-  const labels = {
-    daily_income: 'Monto meta diario (COP)',
-    gross_income: 'Monto meta bruto del mes (COP)',
-    net_income: 'Monto meta neto del mes (COP)'
-  };
-  document.getElementById('goalAmountLabel').textContent = labels[goalType];
-}
 function saveGoal(){
   const amount = Number(document.getElementById('goalAmount').value);
   if(!amount || amount<=0){ alert('Ingresa un monto válido'); return; }
-  state.goal = { type: goalType, amount };
+  state.goal = { type: 'net_income', amount };
   saveState();
   closeGoal();
   render();
@@ -967,44 +985,87 @@ function clearGoal(){
 function computeGoalStatus(data){
   const g = state.goal;
   if(!g || !g.amount) return null;
-  if(g.type === 'daily_income'){
-    const diff = g.amount - data.dailyIncomeEffective;
-    return { label:'Meta de ingreso diario', current:data.dailyIncomeEffective, target:g.amount, diffDaily:diff, diffTotal:diff*data.dim, met: diff<=0 };
-  } else if(g.type === 'gross_income'){
-    const diff = g.amount - data.totalIncome;
-    return { label:'Meta de ingreso bruto del mes', current:data.totalIncome, target:g.amount, diffDaily:diff/data.dim, diffTotal:diff, met: diff<=0 };
-  } else {
-    const currentNet = data.totalIncome - data.totalExpense;
-    const diff = g.amount - currentNet;
-    return { label:'Meta neta del mes', current:currentNet, target:g.amount, diffDaily:diff/data.dim, diffTotal:diff, met: diff<=0 };
-  }
+  const currentNet = data.totalIncome - data.totalExpense;
+  const diff = g.amount - currentNet;
+  return { current:currentNet, target:g.amount, diffDaily:diff/data.dim, diffTotal:diff, met: diff<=0 };
 }
 
-// Category spend chart
-function renderCategoryChart(monthTx){
+// Daily-available trend across the month
+function computeDailyTrendSeries(){
+  const data = computeMonthData();
+  const dim = data.dim;
+  const txByDay = {};
+  data.monthTx.forEach(t=>{
+    const day = Number(t.date.split('-')[2]);
+    txByDay[day] = (txByDay[day]||0) + (t.type==='income' ? Number(t.amount) : -Number(t.amount));
+  });
+  let cum = 0;
+  const series = [];
+  for(let d=1; d<=dim; d++){
+    cum += (txByDay[d]||0);
+    series.push(data.dailyNetBase + cum/dim);
+  }
+  return series;
+}
+function renderTrendChart(series){
+  const w = 448, h = 140, padTop = 14, padBottom = 14;
+  const min = Math.min(...series), max = Math.max(...series);
+  const range = (max - min) || 1;
+  const scaleY = v => padTop + (1 - (v - min) / range) * (h - padTop - padBottom);
+  const stepX = series.length > 1 ? w / (series.length - 1) : 0;
+  const points = series.map((v,i)=> `${i*stepX},${scaleY(v)}`).join(' ');
+  const zeroY = (min <= 0 && max >= 0) ? scaleY(0) : null;
+  const lastVal = series[series.length-1];
+  const color = lastVal >= 0 ? 'var(--teal)' : 'var(--rust)';
+  return `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">
+    ${zeroY!==null ? `<line x1="0" y1="${zeroY}" x2="${w}" y2="${zeroY}" stroke="var(--line)" stroke-width="1"/>` : ''}
+    <polyline points="${points}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+  </svg>`;
+}
+function openDailyTrend(){
+  const series = computeDailyTrendSeries();
+  const t = new Date();
+  const isCurrentMonth = t.getFullYear()===viewYear && t.getMonth()===viewMonth;
+  const upTo = isCurrentMonth ? t.getDate() : series.length;
+  const visibleSeries = series.slice(0, upTo);
+  const first = visibleSeries[0], last = visibleSeries[visibleSeries.length-1];
+  document.getElementById('dailyTrendContent').innerHTML = `
+    <div class="mini-note" style="margin-bottom:10px;">Cómo ha cambiado tu disponible diario real durante ${monthLabel(viewYear,viewMonth)}, a medida que registras movimientos.</div>
+    ${renderTrendChart(visibleSeries.length>1?visibleSeries:series)}
+    <div style="display:flex;justify-content:space-between;margin-top:10px;">
+      <span class="mini-note">Inicio de mes: ${fmtCOP(first)}</span>
+      <span class="mini-note">Hoy: ${fmtCOP(last)}</span>
+    </div>
+  `;
+  document.getElementById('dailyTrendOverlay').classList.add('open');
+}
+function closeDailyTrend(){ document.getElementById('dailyTrendOverlay').classList.remove('open'); }
+
+// Category spend chart (daily-oriented, for a given type)
+function renderCategoryChart(monthTx, type, dim){
   const totals = {};
-  monthTx.filter(t=>t.type==='expense').forEach(t=>{
+  monthTx.filter(t=>t.type===type).forEach(t=>{
     const cat = t.category || 'uncategorized';
     totals[cat] = (totals[cat]||0) + Number(t.amount);
   });
-  state.recurring.filter(r=>r.type==='expense').forEach(r=>{
+  state.recurring.filter(r=>r.type===type).forEach(r=>{
     const cat = r.category || 'uncategorized';
     totals[cat] = (totals[cat]||0) + getAmountForMonth(r, viewYear, viewMonth);
   });
   const totalSum = Object.values(totals).reduce((s,v)=>s+v,0);
   if(totalSum === 0){
-    return `<div class="empty">Sin gastos este mes para categorizar.</div>`;
+    return `<div class="empty">Sin ${type==='income'?'ingresos':'gastos'} este mes para categorizar.</div>`;
   }
   const rows = Object.entries(totals).map(([catId,amt])=>{
     const cat = categoryById(catId);
-    return { name: cat.name, color: cat.color, amt, pct: totalSum ? (amt/totalSum*100) : 0 };
-  }).sort((a,b)=>b.amt-a.amt);
+    return { name: cat.name, color: cat.color, perDay: amt/dim, pct: totalSum ? (amt/totalSum*100) : 0 };
+  }).sort((a,b)=>b.perDay-a.perDay);
 
   return rows.map(r=>`
     <div style="margin-bottom:12px;">
       <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px;align-items:center;">
         <span style="display:flex;align-items:center;gap:6px;"><span class="cat-dot" style="background:${r.color};"></span>${escapeHtml(r.name)}</span>
-        <span class="mini-note" style="font-size:12px;">${fmtCOP(r.amt)} · ${r.pct.toFixed(0)}%</span>
+        <span class="mini-note" style="font-size:12px;">${fmtCOP(r.perDay)}/día · ${r.pct.toFixed(0)}%</span>
       </div>
       <div style="background:var(--surface-2);border-radius:4px;height:6px;overflow:hidden;">
         <div style="width:${r.pct}%;height:100%;background:${r.color};"></div>
